@@ -1,0 +1,24 @@
+{
+  "late_rate_overall": 0.356,
+  "late_rate_disputed": 0.683,
+  "late_rate_not_disputed": 0.259,
+  "late_rate_paper": 0.432,
+  "late_rate_electronic": 0.275,
+  "late_rate_by_history_bucket": {
+    "0\u201310%": 0.062,
+    "10\u201330%": 0.194,
+    "30\u201350%": 0.263,
+    "50\u201370%": 0.552,
+    "70\u2013100%": 0.791
+  },
+  "late_days_median": 8.0,
+  "late_days_p90": 20.0,
+  "avg_days_to_settle": 26.4,
+  "share_of_late_days_top10_customers": 0.371,
+  "n_invoices": 2466,
+  "n_customers": 100,
+  "date_range": [
+    "2012-01-03",
+    "2013-12-02"
+  ]
+}
