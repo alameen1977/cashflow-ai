@@ -1,8 +1,10 @@
-pandas>=2.2
-numpy>=1.26
-matplotlib>=3.8
-scikit-learn>=1.4
-xgboost>=2.0
-torch>=2.2
-fastapi>=0.110
-uvicorn>=0.29
+# pinned to the exact versions the models were trained with
+pandas==3.0.5
+numpy==2.5.3
+scikit-learn==1.9.1
+xgboost==3.4.1
+fastapi==0.143.0
+uvicorn==0.53.0
+pydantic==2.13.5
+matplotlib==3.11.2
+# torch==2.14.1 is installed separately (CPU build) - see Dockerfile
