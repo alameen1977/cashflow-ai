@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "model": "Rule: past late rate > 50%",
+      "ROC_AUC": 0.805,
+      "PR_AUC": 0.567,
+      "Brier": 0.185,
+      "late_caught_in_top20pct": 0.409
+    },
+    {
+      "model": "Logistic regression",
+      "ROC_AUC": 0.925,
+      "PR_AUC": 0.833,
+      "Brier": 0.099,
+      "late_caught_in_top20pct": 0.574
+    },
+    {
+      "model": "XGBoost",
+      "ROC_AUC": 0.923,
+      "PR_AUC": 0.831,
+      "Brier": 0.101,
+      "late_caught_in_top20pct": 0.568
+    },
+    {
+      "model": "PyTorch neural network",
+      "ROC_AUC": 0.922,
+      "PR_AUC": 0.829,
+      "Brier": 0.101,
+      "late_caught_in_top20pct": 0.585
+    }
+  ],
+  "winner": "Logistic regression",
+  "days_late_mae": 4.09,
+  "days_late_naive_mae": 4.7,
+  "days_to_pay_mae": 4.84,
+  "days_to_pay_naive_mae": 11.13,
+  "top_drivers": {
+    "hist_late_rate": 0.219,
+    "hist_avg_days_late": 0.197,
+    "disputed": 0.119,
+    "hist_n_invoices": 0.057,
+    "paperless": 0.046,
+    "hist_max_days_late": 0.042,
+    "hist_dispute_rate": 0.04,
+    "hist_last_days_late": 0.03
+  },
+  "train_size": 1851,
+  "test_size": 615,
+  "test_late_rate": 0.286
+}

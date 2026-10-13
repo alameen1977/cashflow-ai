@@ -6,7 +6,16 @@ incoming cash.
 
 **Stack:** Python · pandas · PyTorch · XGBoost · FastAPI · Docker · n8n · LLM API
 
-> Status: 🚧 Step 1 of 4 complete (data & analysis)
+> Status: 🚧 Step 2 of 4 complete (models + prediction API)
+
+## Headline results (on unseen, later invoices)
+
+| What | Result |
+|---|---|
+| Finds late payers (ROC-AUC) | **0.92** vs 0.81 for a rule of thumb |
+| Calling only the riskiest 20% of invoices reaches | **57% of all late invoices** (max possible: 70%) |
+| Predicts *when* cash arrives | within **4.8 days** on average, vs 11.1 days assuming "pays on due date" |
+| Weekly cash-forecast error (21-week backtest) | **23%** vs 36% for the due-date rule → **35% less error** |
 
 ## The business problem
 
@@ -43,6 +52,56 @@ revenue, each extra day of DSO ties up roughly AED 137k of cash.
 3. Moving customers to e-invoicing is associated with fewer late payments
    (correlation, not proven cause).
 
+## Step 2: models — an honest comparison
+
+Time-based split: trained on 1,851 invoices (Jan 2012 – Jun 2013), tested on
+615 later invoices (Jun – Dec 2013). A random split would let the model
+"see the future".
+
+| Model | ROC-AUC | PR-AUC | Brier (lower = better) | Late invoices caught in top 20% |
+|---|---|---|---|---|
+| Rule: past late rate > 50% | 0.805 | 0.567 | 0.185 | 41% |
+| **Logistic regression** | **0.925** | **0.833** | **0.099** | 57% |
+| XGBoost | 0.923 | 0.831 | 0.101 | 57% |
+| PyTorch neural network | 0.922 | 0.829 | 0.101 | 59% |
+
+![Model comparison](reports/figures/05_model_comparison.png)
+
+**Decision:** the three ML models are statistically tied (bootstrap 95%
+intervals overlap almost completely). I deploy **logistic regression as the
+champion** because it is equally accurate, simpler, cheaper to run, and every
+prediction can be explained to a finance team or auditor. The **PyTorch
+model runs as a challenger** in the API, scored side by side, so it can
+replace the champion if it pulls ahead as more data arrives.
+
+**Top risk drivers:** customer's past late rate, how late past payments
+were, whether the invoice is disputed, billing channel.
+
+## Prediction API (FastAPI)
+
+| Endpoint | What it returns |
+|---|---|
+| `GET /health` | service status |
+| `POST /score` | risk for one invoice: probability late, expected delay, risk tier, recommended action, human-approval flag, plain-English reasons |
+| `GET /portfolio/open-invoices?as_of=2013-09-15` | every open invoice ranked by **cash at risk** (probability × amount), with the next action |
+| `GET /portfolio/cash-forecast?as_of=2013-09-15` | expected collections per week vs the due-date rule (and actuals, since this is a backtest) |
+
+Example `/score` response:
+```json
+{
+  "probability_late": 0.786,
+  "challenger_probability_late": 0.932,
+  "risk_tier": "HIGH",
+  "recommended_action": "Firm reminder now + phone call from account manager",
+  "needs_human_approval": false,
+  "reasons": ["invoice is under dispute", "receives paper (not electronic) bills", "frequently disputes invoices"]
+}
+```
+
+**Controls built in:** HIGH-risk invoices above the 90th-percentile amount
+are flagged `needs_human_approval` — the automation must not send a firm
+message to a key account without a person signing it off.
+
 ## Design decisions (and why)
 
 - **No data leakage.** A customer's history features only use invoices that
@@ -64,8 +123,12 @@ data/raw/            original dataset
 data/processed/      engineered features
 src/features.py      leakage-safe feature engineering
 src/eda.py           analysis + charts
-reports/figures/     charts
-api/                 FastAPI prediction service   (step 2)
+src/train.py         model training & comparison
+src/backtest_forecast.py  cash-forecast backtest
+models/              trained models
+reports/             charts, metrics, test predictions
+api/app.py           FastAPI prediction service
+Dockerfile           container for deployment
 n8n/                 collections workflow export  (step 3)
 docs/                architecture, demo           (step 4)
 ```
@@ -74,13 +137,19 @@ docs/                architecture, demo           (step 4)
 
 ```bash
 pip install -r requirements.txt
-python src/features.py
-python src/eda.py
+python src/features.py            # build features
+python src/eda.py                 # analysis + charts
+python src/train.py               # train & compare models
+python src/compare_chart.py       # comparison chart with confidence intervals
+python src/backtest_forecast.py   # cash-forecast backtest
+uvicorn api.app:app --port 8000   # start API → open http://localhost:8000/docs
 ```
+
+Or with Docker: `docker build -t cashflow-ai . && docker run -p 7860:7860 cashflow-ai`
 
 ## Roadmap
 
 - [x] Step 1 — Data, leakage-safe features, exploratory analysis
-- [ ] Step 2 — Baseline (logistic regression), XGBoost and PyTorch models; honest comparison; FastAPI service
+- [x] Step 2 — Rule of thumb vs logistic regression vs XGBoost vs PyTorch; honest comparison; FastAPI service; cash-forecast backtest
 - [ ] Step 3 — n8n collections autopilot with human-approval step
 - [ ] Step 4 — Cash forecast, dashboard, demo video

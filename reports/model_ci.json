@@ -1,0 +1,26 @@
+[
+  {
+    "model": "Rule of thumb",
+    "pr_auc": 0.567,
+    "ci_low": 0.504,
+    "ci_high": 0.636
+  },
+  {
+    "model": "Logistic regression",
+    "pr_auc": 0.833,
+    "ci_low": 0.782,
+    "ci_high": 0.879
+  },
+  {
+    "model": "XGBoost",
+    "pr_auc": 0.831,
+    "ci_low": 0.782,
+    "ci_high": 0.877
+  },
+  {
+    "model": "PyTorch neural net",
+    "pr_auc": 0.829,
+    "ci_low": 0.775,
+    "ci_high": 0.879
+  }
+]
