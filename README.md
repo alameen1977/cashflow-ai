@@ -4,9 +4,13 @@ Predicts which customer invoices will be paid late, automates prioritised
 follow-ups (with human approval for high-value accounts), and forecasts
 incoming cash.
 
+**▶ Live dashboard: https://cashflow-ai-api-bf23.onrender.com** (free server — first load can take ~50 s)
+
+![Dashboard](docs/dashboard.png)
+
 **Stack:** Python · pandas · PyTorch · XGBoost · FastAPI · Docker · n8n · LLM API
 
-> Status: 🚧 Step 3 of 4 complete (models + live API + n8n automation)
+> Status: ✅ Complete — data analysis, ML models, live API, n8n automation and dashboard
 
 ## Headline results (on unseen, later invoices)
 
@@ -81,7 +85,9 @@ were, whether the invoice is disputed, billing channel.
 
 | Endpoint | What it returns |
 |---|---|
+| `GET /` | the dashboard |
 | `GET /health` | service status |
+| `GET /customers` | customers with their past late-payment rate |
 | `POST /score` | risk for one invoice: probability late, expected delay, risk tier, recommended action, human-approval flag, plain-English reasons |
 | `GET /portfolio/open-invoices?as_of=2013-09-15` | every open invoice ranked by **cash at risk** (probability × amount), with the next action |
 | `GET /portfolio/cash-forecast?as_of=2013-09-15` | expected collections per week vs the due-date rule (and actuals, since this is a backtest) |
@@ -148,6 +154,7 @@ src/backtest_forecast.py  cash-forecast backtest
 models/              trained models
 reports/             charts, metrics, test predictions
 api/app.py           FastAPI prediction service
+api/static/index.html  dashboard (single page, no frameworks)
 Dockerfile           container for deployment
 render.yaml          one-click Render deployment
 requirements.txt     API runtime (no PyTorch)
@@ -183,4 +190,4 @@ Verified identical to PyTorch output (max difference < 0.0000002).
 - [x] Step 1 — Data, leakage-safe features, exploratory analysis
 - [x] Step 2 — Rule of thumb vs logistic regression vs XGBoost vs PyTorch; honest comparison; FastAPI service; cash-forecast backtest
 - [x] Step 3 — n8n collections autopilot with AI-drafted emails and human-approval step
-- [ ] Step 4 — Cash forecast, dashboard, demo video
+- [x] Step 4 — Dashboard with KPIs, cash forecast, ranked call list and live invoice checker

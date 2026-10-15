@@ -20,6 +20,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -101,6 +102,27 @@ def _action(p: float, amount: float, days_to_due: int):
 
 app = FastAPI(title="CashFlow AI", version="1.0",
               description="Predicts late invoice payments and prioritises collections.")
+
+
+DASHBOARD = os.path.join(ROOT, "api", "static", "index.html")
+
+
+@app.get("/", include_in_schema=False)
+def dashboard():
+    """The CashFlow AI dashboard (a single page that calls this API)."""
+    return FileResponse(DASHBOARD)
+
+
+@app.get("/customers")
+def customers():
+    """Customer list with headline payment history (for the dashboard form)."""
+    g = LEDGER.groupby("customerID").agg(invoices=("is_late", "size"),
+                                         late_rate=("is_late", "mean"),
+                                         country=("countryCode", "first"))
+    g = g.sort_values("late_rate", ascending=False)
+    return [{"customer_id": c, "invoices": int(r.invoices),
+             "late_rate": round(float(r.late_rate), 3), "country_code": int(r.country)}
+            for c, r in g.iterrows()]
 
 
 @app.get("/health")

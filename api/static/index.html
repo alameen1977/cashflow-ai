@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CashFlow AI — Collections Intelligence</title>
+<meta name="description" content="Predicts which invoices will be paid late, ranks who to call first, drafts follow-ups and forecasts incoming cash.">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee;
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6; --accent-ink: #1c5cab;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+    --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --warn-ink: #8a5a00; --crit: #d03b3b; --crit-ink: #b02a2a;
+    --good-bg: rgba(12,163,12,0.10); --warn-bg: rgba(250,178,25,0.16); --crit-bg: rgba(208,59,59,0.10);
+    --shadow: 0 1px 2px rgba(11,11,11,0.04), 0 4px 16px rgba(11,11,11,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+      --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --accent: #3987e5; --accent-ink: #86b6ef;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+      --good-ink: #0ca30c; --warn-ink: #fab219; --crit-ink: #e66767;
+      --good-bg: rgba(12,163,12,0.16); --warn-bg: rgba(250,178,25,0.14); --crit-bg: rgba(230,103,103,0.16);
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5; --accent-ink: #86b6ef;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --good-ink: #0ca30c; --warn-ink: #fab219; --crit-ink: #e66767;
+    --good-bg: rgba(12,163,12,0.16); --warn-bg: rgba(250,178,25,0.14); --crit-bg: rgba(230,103,103,0.16);
+    --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-ink); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+
+  header.top { border-bottom: 1px solid var(--border); background: var(--surface); }
+  header.top .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding-top: 14px; padding-bottom: 14px; }
+  .brand { display: flex; gap: 12px; align-items: center; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px; flex: none; }
+  .brand h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  .brand p { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: var(--ink-2); }
+  input, select, button { font: inherit; color: inherit; }
+  input[type="date"], input[type="number"], select {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; min-height: 36px;
+  }
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; min-height: 36px; font-weight: 600; cursor: pointer; }
+  .btn:hover { filter: brightness(1.06); }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--border); font-weight: 500; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  main { padding: 22px 0 40px; }
+  .intro { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .intro h2 { font-size: 22px; margin: 0; letter-spacing: -0.015em; }
+  .intro p { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 640px; }
+
+  .status { display: none; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 16px; font-size: 14px; color: var(--ink-2); }
+  .status.show { display: flex; }
+  .status.err { color: var(--crit-ink); }
+  .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--grid); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+  .kpi { padding: 14px 16px; }
+  .kpi .label { font-size: 13px; color: var(--ink-2); }
+  .kpi .value { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; margin-top: 2px; }
+  .kpi .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .kpi .sub b { color: var(--ink-2); font-weight: 600; }
+
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; margin-bottom: 16px; }
+  .panel { padding: 16px 18px; }
+  .panel h3 { font-size: 15px; margin: 0; }
+  .panel .desc { font-size: 13px; color: var(--ink-2); margin: 2px 0 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  #chart { position: relative; }
+  #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,0.12); padding: 8px 10px; font-size: 12.5px; min-width: 170px; opacity: 0; transition: opacity .12s; z-index: 5; }
+  .tip.show { opacity: 1; }
+  .tip .t { font-weight: 600; margin-bottom: 4px; color: var(--ink); }
+  .tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .tip .r i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+  .chart-note { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+
+  .metrics { display: grid; gap: 10px; }
+  .metric { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+  .metric:last-child { border-bottom: 0; }
+  .metric .m-label { font-size: 13.5px; }
+  .metric .m-val { font-weight: 650; font-size: 17px; text-align: right; }
+  .metric .m-sub { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+  .good-txt { color: var(--good-ink); }
+
+  .list-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 10px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; min-height: 32px; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-weight: 600; font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .03em; padding: 8px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-2); }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .right { text-align: right; }
+  .inv { font-weight: 600; }
+  .cust { color: var(--muted); font-size: 12.5px; }
+  .prob { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+  .bar { flex: 1; height: 6px; background: var(--grid); border-radius: 3px; overflow: hidden; min-width: 50px; }
+  .bar > span { display: block; height: 100%; border-radius: 3px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .b-HIGH { background: var(--crit-bg); color: var(--crit-ink); } .b-HIGH .dot { background: var(--crit); }
+  .b-MEDIUM { background: var(--warn-bg); color: var(--warn-ink); } .b-MEDIUM .dot { background: var(--warn); }
+  .b-LOW { background: var(--good-bg); color: var(--good-ink); } .b-LOW .dot { background: var(--good); }
+  .approval { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 600; color: var(--crit-ink); margin-top: 4px; }
+  .reasons { color: var(--ink-2); font-size: 12.5px; min-width: 200px; }
+  .action { font-size: 12.5px; min-width: 170px; }
+  .overdue { color: var(--crit-ink); font-weight: 600; }
+  .empty { padding: 20px; text-align: center; color: var(--muted); }
+  .more { margin-top: 10px; }
+
+  .checker { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .form .full { grid-column: 1 / -1; }
+  .form label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
+  .form select, .form input { width: 100%; }
+  .form label.toggle, .toggle { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--ink); min-height: 36px; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .result { background: var(--surface-2); border-radius: 10px; padding: 16px; min-height: 220px; }
+  .result .placeholder { color: var(--muted); font-size: 14px; }
+  .result .big { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+  .result .big small { font-size: 15px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
+  .result ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-2); }
+  .result .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .result .kv { font-size: 13px; color: var(--ink-2); }
+  .result .kv b { color: var(--ink); }
+
+  .how { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .step { padding: 14px 16px; }
+  .step .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; margin-bottom: 8px; }
+  .step h4 { margin: 0 0 4px; font-size: 14px; }
+  .step p { margin: 0; font-size: 13px; color: var(--ink-2); }
+  section { margin-bottom: 16px; }
+  .sec-title { font-size: 15px; margin: 22px 0 10px; }
+  footer { border-top: 1px solid var(--border); padding: 18px 0 30px; font-size: 12.5px; color: var(--muted); }
+  footer p { margin: 4px 0; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  @media (max-width: 960px) {
+    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid2, .checker { grid-template-columns: minmax(0, 1fr); }
+    .how { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kpi .value { font-size: 22px; }
+    .form { grid-template-columns: 1fr; }
+    .how { grid-template-columns: 1fr; }
+    .intro h2 { font-size: 19px; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">CF</div>
+      <div>
+        <h1>CashFlow AI</h1>
+        <p>Collections intelligence: who will pay late, who to call first, how much cash is coming</p>
+      </div>
+    </div>
+    <div class="controls">
+      <label for="asof">Simulated "today"</label>
+      <input type="date" id="asof" value="2013-09-15" min="2012-03-01" max="2013-11-30">
+      <button class="btn" id="refresh">Update</button>
+      <a class="btn ghost" href="https://github.com/alameen1977/cashflow-ai" target="_blank" rel="noopener">Code on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <h2 id="title">Collections overview</h2>
+    <p>Live predictions from a machine-learning model trained on 2,466 real-format invoices (IBM accounts-receivable sample data). Pick any date in 2012–2013 to see the system as it would have looked that morning.</p>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite"><div class="spinner"></div><span id="status-text">Loading…</span></div>
+
+  <div class="kpis" id="kpis">
+    <div class="card kpi"><div class="label">Open invoices</div><div class="value" id="k-open">–</div><div class="sub">unpaid on this date</div></div>
+    <div class="card kpi"><div class="label">Total owed</div><div class="value" id="k-amount">–</div><div class="sub">AED, all open invoices</div></div>
+    <div class="card kpi"><div class="label">Cash at risk</div><div class="value" id="k-risk">–</div><div class="sub" id="k-risk-sub">probability late × amount</div></div>
+    <div class="card kpi"><div class="label">High-risk invoices</div><div class="value" id="k-high">–</div><div class="sub">≥70% chance of paying late</div></div>
+    <div class="card kpi"><div class="label">Need manager approval</div><div class="value" id="k-appr">–</div><div class="sub">high risk + high value</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card panel">
+      <h3>Cash coming in, next 6 weeks</h3>
+      <p class="desc">AI forecast (predicted payment date for each invoice) vs. the common shortcut of assuming everyone pays on the due date.</p>
+      <div class="legend" id="legend">
+        <span><i style="background:var(--s1)"></i>AI forecast</span>
+        <span><i style="background:var(--s2)"></i>Due-date assumption</span>
+        <span><i style="background:var(--s3)"></i>Actually collected</span>
+      </div>
+      <div id="chart" aria-label="Weekly cash forecast chart"></div>
+      <p class="chart-note">"Actually collected" is shown because this is historical data, so we can check the forecast. Across a 21-week backtest the AI forecast had <b>35% less error</b>.</p>
+    </div>
+    <div class="card panel">
+      <h3>How good is the model?</h3>
+      <p class="desc">Tested on 615 later invoices the model never saw.</p>
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Spots late payers (ROC-AUC)</div><div class="m-val">0.92</div><div class="m-sub">vs 0.81 for a rule of thumb (0.5 = coin flip)</div></div>
+        <div class="metric"><div class="m-label">Late invoices found by calling only the riskiest 20%</div><div class="m-val">57%</div><div class="m-sub">maximum possible: 70%</div></div>
+        <div class="metric"><div class="m-label">Error predicting payment date</div><div class="m-val">4.8 days</div><div class="m-sub">vs 11.1 days assuming "pays on due date"</div></div>
+        <div class="metric"><div class="m-label">Weekly cash-forecast error</div><div class="m-val good-txt">−35%</div><div class="m-sub">vs due-date forecasting</div></div>
+        <div class="metric"><div class="m-label">Model in use</div><div class="m-val" style="font-size:14px">Logistic regression</div><div class="m-sub">Tied with XGBoost and a PyTorch neural network; chosen because every prediction can be explained. PyTorch runs alongside as a challenger.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="card panel">
+    <div class="list-head">
+      <div>
+        <h3>Today's call list</h3>
+        <p class="desc" style="margin-bottom:0">Ranked by cash at risk, so the team chases the money most likely to be late first.</p>
+      </div>
+      <div class="chips" role="group" aria-label="Filter call list">
+        <button class="chip" data-f="all" aria-pressed="true">All</button>
+        <button class="chip" data-f="HIGH" aria-pressed="false">High risk</button>
+        <button class="chip" data-f="MEDIUM" aria-pressed="false">Medium</button>
+        <button class="chip" data-f="LOW" aria-pressed="false">Low</button>
+        <button class="chip" data-f="approval" aria-pressed="false">Needs approval</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Invoice</th><th class="right">Amount (AED)</th><th>Due</th><th>Chance of paying late</th><th>Risk</th><th class="hide-sm">Why</th><th>Next action</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <button class="btn ghost more" id="more" hidden>Show more</button>
+  </section>
+
+  <h3 class="sec-title">Check an invoice</h3>
+  <section class="card panel">
+    <div class="checker">
+      <form class="form" id="form">
+        <label class="full">Customer
+          <select id="f-cust" required><option>Loading customers…</option></select>
+        </label>
+        <label>Invoice amount (AED)
+          <input type="number" id="f-amt" value="75" min="1" step="0.01" required>
+        </label>
+        <label>Invoice date
+          <input type="date" id="f-date" value="2013-09-15" min="2012-01-01" max="2013-12-31" required>
+        </label>
+        <label class="toggle"><input type="checkbox" id="f-disp"> Customer has disputed it</label>
+        <label class="toggle"><input type="checkbox" id="f-paper"> Sent as a paper bill</label>
+        <div class="full"><button class="btn" type="submit">Predict</button></div>
+      </form>
+      <div class="result" id="result" aria-live="polite">
+        <p class="placeholder">Pick a customer and press <b>Predict</b>. The model looks only at that customer's payment history <i>before</i> the invoice date, just as a real finance team would.</p>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sec-title">How it works</h3>
+  <div class="how">
+    <div class="card step"><div class="n">1</div><h4>Learn from history</h4><p>For every invoice, the model only uses payments that had already happened on that date — no peeking at the future.</p></div>
+    <div class="card step"><div class="n">2</div><h4>Score every open invoice</h4><p>Chance of paying late, expected delay, and plain-English reasons, served by a live API.</p></div>
+    <div class="card step"><div class="n">3</div><h4>Automate follow-ups</h4><p>An n8n workflow drafts a reminder for each invoice, firm for risky accounts and helpful for disputes.</p></div>
+    <div class="card step"><div class="n">4</div><h4>Keep humans in control</h4><p>Firm messages to high-value accounts wait for a manager's approval before anything is sent.</p></div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Built by Al-Ameen Azimsippy · Python, PyTorch, XGBoost, FastAPI, n8n · <a href="https://github.com/alameen1977/cashflow-ai" target="_blank" rel="noopener">github.com/alameen1977/cashflow-ai</a> · <a href="/docs">API docs</a></p>
+    <p>Data: IBM accounts-receivable sample dataset (2012–2013). Amounts are shown in AED for this UAE demo; the source data does not specify a currency. Customer emails are placeholders.</p>
+  </div>
+</footer>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n, d = 0) => Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  let invoices = [], filter = "all", shown = 15, firstLoad = true;
+
+  function status(msg, isErr) {
+    const s = $("status");
+    if (!msg) { s.classList.remove("show"); return; }
+    s.classList.add("show"); s.classList.toggle("err", !!isErr);
+    s.querySelector(".spinner").style.display = isErr ? "none" : "";
+    $("status-text").textContent = msg;
+  }
+
+  async function getJSON(url, opts) {
+    const r = await fetch(url, opts);
+    if (!r.ok) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail || detail; } catch (e) {}
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    return r.json();
+  }
+
+  async function load() {
+    const asof = $("asof").value;
+    status(firstLoad ? "Loading predictions… (the free server can take up to a minute to wake up the first time)" : "Updating…");
+    const slow = setTimeout(() => status("Still waking up the free server… almost there."), 8000);
+    try {
+      const [port, fc] = await Promise.all([
+        getJSON(`/portfolio/open-invoices?as_of=${asof}&limit=500`),
+        getJSON(`/portfolio/cash-forecast?as_of=${asof}&weeks=6`)
+      ]);
+      clearTimeout(slow);
+      invoices = port.invoices; shown = 15;
+      const d = new Date(asof + "T00:00:00");
+      $("title").textContent = "Collections overview · " + d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      $("k-open").textContent = fmt(port.open_invoices_total);
+      $("k-amount").textContent = fmt(port.total_open_amount);
+      $("k-risk").textContent = fmt(port.total_cash_at_risk);
+      const pct = port.total_open_amount ? Math.round(100 * port.total_cash_at_risk / port.total_open_amount) : 0;
+      $("k-risk-sub").innerHTML = `<b>${pct}%</b> of what is owed`;
+      $("k-high").textContent = invoices.filter((i) => i.risk_tier === "HIGH").length;
+      $("k-appr").textContent = invoices.filter((i) => i.needs_human_approval).length;
+      renderRows();
+      renderChart(fc.weeks);
+      status(null); firstLoad = false;
+    } catch (e) {
+      clearTimeout(slow);
+      status("Could not load data: " + e.message + ". Try another date between March 2012 and November 2013.", true);
+      $("rows").innerHTML = `<tr><td colspan="8" class="empty">No data for this date.</td></tr>`;
+    }
+  }
+
+  function badge(t) { return `<span class="badge b-${t}"><span class="dot"></span>${t === "HIGH" ? "High" : t === "MEDIUM" ? "Medium" : "Low"}</span>`; }
+  function probColor(p) { return p >= 0.7 ? "var(--crit)" : p >= 0.4 ? "var(--warn)" : "var(--good)"; }
+
+  function renderRows() {
+    let list = invoices;
+    if (filter === "approval") list = list.filter((i) => i.needs_human_approval);
+    else if (filter !== "all") list = list.filter((i) => i.risk_tier === filter);
+    const view = list.slice(0, shown);
+    $("more").hidden = list.length <= shown;
+    $("more").textContent = `Show more (${list.length - shown} left)`;
+    if (!view.length) { $("rows").innerHTML = `<tr><td colspan="8" class="empty">No invoices in this group.</td></tr>`; return; }
+    $("rows").innerHTML = view.map((i) => {
+      const due = i.days_to_due < 0 ? `<span class="overdue">${-i.days_to_due} days overdue</span>` : i.days_to_due === 0 ? "today" : `in ${i.days_to_due} days`;
+      const p = Math.round(i.probability_late * 100);
+      return `<tr>
+        <td class="num">${i.priority}</td>
+        <td><div class="inv">${esc(i.invoice_number)}</div><div class="cust">${esc(i.customer_id)}${i.disputed ? " · disputed" : ""}</div></td>
+        <td class="num right">${fmt(i.amount, 2)}</td>
+        <td class="num">${due}</td>
+        <td><div class="prob"><span class="num" style="width:34px">${p}%</span><div class="bar"><span style="width:${p}%;background:${probColor(i.probability_late)}"></span></div></div></td>
+        <td>${badge(i.risk_tier)}${i.needs_human_approval ? `<div class="approval">⚑ Needs approval</div>` : ""}</td>
+        <td class="reasons hide-sm">${i.reasons.map(esc).join("; ")}</td>
+        <td class="action">${esc(i.recommended_action)}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderChart(weeks) {
+    const el = $("chart");
+    const W = 640, H = 260, m = { t: 10, r: 8, b: 34, l: 52 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const keys = [["forecast_ai", "var(--s1)", "AI forecast"], ["forecast_due_date_rule", "var(--s2)", "Due-date assumption"], ["actual_collected", "var(--s3)", "Actually collected"]];
+    const max = Math.max(1, ...weeks.flatMap((w) => keys.map((k) => w[k[0]])));
+    const step = niceStep(max / 4), top = Math.ceil(max / step) * step;
+    const y = (v) => m.t + ih - (v / top) * ih;
+    const gw = iw / weeks.length, bw = Math.min(22, (gw - 18) / 3), gap = 2;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grouped bar chart of weekly cash: AI forecast, due-date assumption and actual">`;
+    for (let v = 0; v <= top + 1e-9; v += step) {
+      s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? "var(--axis)" : "var(--grid)"}" stroke-width="1"/>`;
+      s += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" style="font-variant-numeric:tabular-nums">${fmt(v)}</text>`;
+    }
+    weeks.forEach((w, gi) => {
+      const gx = m.l + gi * gw, total = 3 * bw + 2 * gap, x0 = gx + (gw - total) / 2;
+      keys.forEach((k, ki) => {
+        const v = w[k[0]], x = x0 + ki * (bw + gap), yy = y(v), h = Math.max(0, m.t + ih - yy), r = Math.min(4, h, bw / 2);
+        s += h > 0 ? `<path d="M${x},${m.t + ih} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + bw - r} Q${x + bw},${yy} ${x + bw},${yy + r} V${m.t + ih} Z" fill="${k[1]}"/>` : "";
+      });
+      const d = new Date(w.week_start + "T00:00:00");
+      s += `<text x="${gx + gw / 2}" y="${H - 12}" text-anchor="middle" font-size="11" fill="var(--muted)">${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</text>`;
+      s += `<rect class="hit" data-i="${gi}" x="${gx}" y="${m.t}" width="${gw}" height="${ih}" fill="transparent"/>`;
+    });
+    s += `</svg>`;
+    el.innerHTML = s;
+    const tip = $("tip");
+    el.querySelectorAll(".hit").forEach((r) => {
+      const show = (ev) => {
+        const w = weeks[+r.dataset.i];
+        const d = new Date(w.week_start + "T00:00:00");
+        tip.innerHTML = `<div class="t">Week of ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>` +
+          keys.map((k) => `<div class="r"><span><i style="background:${k[1]}"></i>${k[2]}</span><span>${fmt(w[k[0]], 0)}</span></div>`).join("");
+        tip.classList.add("show");
+        const px = ev.clientX ?? r.getBoundingClientRect().left, py = ev.clientY ?? r.getBoundingClientRect().top;
+        const tw = tip.offsetWidth;
+        let left = px + 14 + window.scrollX; if (left + tw > window.scrollX + document.documentElement.clientWidth - 8) left = px - tw - 14 + window.scrollX;
+        tip.style.left = left + "px"; tip.style.top = (py + 12 + window.scrollY) + "px";
+        r.setAttribute("fill", "rgba(127,127,127,0.08)");
+      };
+      const hide = () => { tip.classList.remove("show"); r.setAttribute("fill", "transparent"); };
+      r.addEventListener("mousemove", show); r.addEventListener("mouseleave", hide);
+      r.addEventListener("touchstart", (e) => { show(e.touches[0]); }, { passive: true });
+    });
+  }
+  function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw))); const f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+
+  async function loadCustomers() {
+    try {
+      const cs = await getJSON("/customers");
+      $("f-cust").innerHTML = cs.map((c) => `<option value="${esc(c.customer_id)}" data-country="${c.country_code}">${esc(c.customer_id)} · paid ${Math.round(c.late_rate * 100)}% of ${c.invoices} invoices late</option>`).join("");
+    } catch (e) { $("f-cust").innerHTML = `<option>Could not load customers</option>`; }
+  }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const sel = $("f-cust"), opt = sel.options[sel.selectedIndex];
+    const body = { customer_id: sel.value, invoice_amount: parseFloat($("f-amt").value), invoice_date: $("f-date").value,
+      disputed: $("f-disp").checked, paperless: !$("f-paper").checked, country_code: parseInt(opt?.dataset.country || "391", 10) };
+    const res = $("result");
+    res.innerHTML = `<div style="display:flex;gap:10px;align-items:center;color:var(--ink-2)"><div class="spinner"></div>Asking the model…</div>`;
+    try {
+      const r = await getJSON("/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const p = Math.round(r.probability_late * 100);
+      res.innerHTML = `
+        <div class="kv">Chance this invoice is paid late</div>
+        <div class="big" style="color:${probColor(r.probability_late)}">${p}%</div>
+        <div class="bar" style="margin:8px 0 4px"><span style="width:${p}%;background:${probColor(r.probability_late)}"></span></div>
+        <div class="row">${badge(r.risk_tier)}${r.needs_human_approval ? `<span class="approval" style="margin:0">⚑ Needs manager approval</span>` : ""}</div>
+        <div class="kv"><b>Next action:</b> ${esc(r.recommended_action)}</div>
+        <div class="kv" style="margin-top:6px"><b>If late, expected delay:</b> about ${fmt(r.expected_days_late_if_late, 0)} days</div>
+        <div class="kv" style="margin-top:10px"><b>Why:</b></div>
+        <ul>${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        <div class="kv" style="margin-top:10px">Based on ${r.past_invoices_used} earlier invoices from this customer · PyTorch challenger says ${Math.round(r.challenger_probability_late * 100)}%</div>`;
+    } catch (err) { res.innerHTML = `<p class="placeholder" style="color:var(--crit-ink)">Could not score: ${esc(err.message)}</p>`; }
+  });
+
+  document.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", "false"));
+    c.setAttribute("aria-pressed", "true"); filter = c.dataset.f; shown = 15; renderRows();
+  }));
+  $("more").addEventListener("click", () => { shown += 15; renderRows(); });
+  $("refresh").addEventListener("click", load);
+  $("asof").addEventListener("change", () => { $("f-date").value = $("asof").value; load(); });
+
+  load();
+  loadCustomers();
+})();
+</script>
+</body>
+</html>
