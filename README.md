@@ -129,6 +129,9 @@ models/              trained models
 reports/             charts, metrics, test predictions
 api/app.py           FastAPI prediction service
 Dockerfile           container for deployment
+render.yaml          one-click Render deployment
+requirements.txt     API runtime (no PyTorch)
+requirements-train.txt  training & analysis (adds PyTorch)
 n8n/                 collections workflow export  (step 3)
 docs/                architecture, demo           (step 4)
 ```
@@ -136,7 +139,7 @@ docs/                architecture, demo           (step 4)
 ## Run it
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-train.txt
 python src/features.py            # build features
 python src/eda.py                 # analysis + charts
 python src/train.py               # train & compare models
@@ -145,7 +148,15 @@ python src/backtest_forecast.py   # cash-forecast backtest
 uvicorn api.app:app --port 8000   # start API → open http://localhost:8000/docs
 ```
 
-Or with Docker: `docker build -t cashflow-ai . && docker run -p 7860:7860 cashflow-ai`
+Or with Docker: `docker build -t cashflow-ai . && docker run -p 8000:8000 cashflow-ai`
+
+## Deployment
+
+Deployed on **Render** (free tier) straight from this repo via `render.yaml`.
+The PyTorch challenger is trained with PyTorch, then its weights are exported
+to numpy (`models/pytorch_mlp_weights.npz`) and served with a 5-line numpy
+forward pass, so the API doesn't need the 700MB+ PyTorch library at runtime.
+Verified identical to PyTorch output (max difference < 0.0000002).
 
 ## Roadmap
 

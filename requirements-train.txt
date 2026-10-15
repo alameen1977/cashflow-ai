@@ -1,0 +1,4 @@
+# Training & analysis (adds PyTorch and charts on top of the API runtime)
+-r requirements.txt
+torch==2.14.1
+matplotlib==3.11.2

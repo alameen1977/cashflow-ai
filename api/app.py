@@ -19,8 +19,6 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -31,22 +29,21 @@ from features import FEATURES, load_raw  # noqa: E402
 # ---------- load models ----------
 M = pickle.load(open(os.path.join(ROOT, "models/models.pkl"), "rb"))
 LOGREG, DAYS_LATE, SETTLE = M["logreg"], M["days_late"], M["days_to_settle"]
-_ck = torch.load(os.path.join(ROOT, "models/pytorch_mlp.pt"), weights_only=False)
 
 
-class LatePaymentNet(nn.Module):
-    def __init__(self, n_in):
-        super().__init__()
-        self.net = nn.Sequential(nn.Linear(n_in, 32), nn.ReLU(), nn.Dropout(0.2),
-                                 nn.Linear(32, 16), nn.ReLU(), nn.Dropout(0.2),
-                                 nn.Linear(16, 1))
-
-    def forward(self, x):
-        return self.net(x).squeeze(-1)
+# PyTorch challenger: trained in PyTorch (src/train.py), weights exported to
+# numpy so the API runs without the 700MB+ torch library (fits free hosting).
+_W = np.load(os.path.join(ROOT, "models/pytorch_mlp_weights.npz"))
 
 
-MLP = LatePaymentNet(_ck["n_in"]); MLP.load_state_dict(_ck["state_dict"]); MLP.eval()
-MLP_SCALER = _ck["scaler"]
+def mlp_predict(X: np.ndarray) -> np.ndarray:
+    """Same forward pass as LatePaymentNet (dropout is off at inference)."""
+    h = (X - _W["scaler_mean"]) / _W["scaler_scale"]
+    h = np.maximum(h @ _W["net_0_weight"].T + _W["net_0_bias"], 0)
+    h = np.maximum(h @ _W["net_3_weight"].T + _W["net_3_bias"], 0)
+    z = (h @ _W["net_6_weight"].T + _W["net_6_bias"]).ravel()
+    return 1 / (1 + np.exp(-z))
+
 
 # ---------- the "company ledger" (invoice history) ----------
 LEDGER = load_raw(os.path.join(ROOT, "data/raw/ar.csv"))
@@ -69,9 +66,7 @@ REASONS = {
 
 def _probs(X: np.ndarray):
     p_champ = LOGREG.predict_proba(X)[:, 1]
-    with torch.no_grad():
-        p_chal = torch.sigmoid(MLP(torch.tensor(MLP_SCALER.transform(X), dtype=torch.float32))).numpy()
-    return p_champ, p_chal
+    return p_champ, mlp_predict(X)
 
 
 def _reasons(x: np.ndarray, top=3):

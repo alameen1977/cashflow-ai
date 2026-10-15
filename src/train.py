@@ -193,6 +193,10 @@ pickle.dump({"logreg": logreg, "xgboost": xgb_final, "days_late": reg, "days_to_
              "features": FEATURES}, open("models/models.pkl", "wb"))
 torch.save({"state_dict": mlp.state_dict(), "scaler": mlp_scaler,
             "n_in": len(FEATURES)}, "models/pytorch_mlp.pt")
+# export weights to numpy so the API can serve the model without torch
+np.savez("models/pytorch_mlp_weights.npz",
+         **{k.replace(".", "_"): v.numpy() for k, v in mlp.state_dict().items()},
+         scaler_mean=mlp_scaler.mean_, scaler_scale=mlp_scaler.scale_)
 out = test[["invoiceNumber", "customerID", "InvoiceDate", "InvoiceAmount", "is_late", "DaysLate"]].copy()
 for k, v in preds.items():
     out[f"p_{k}"] = v
