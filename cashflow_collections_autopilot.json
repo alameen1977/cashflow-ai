@@ -1,0 +1,1071 @@
+{
+  "name": "CashFlow AI - Daily Collections Autopilot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 45
+            }
+          ]
+        }
+      },
+      "id": "abac6c41-b78c-46a1-8fa2-b9b935b96ba0",
+      "name": "Daily 08:45 Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "api",
+              "name": "api_base",
+              "value": "https://cashflow-ai-api-bf23.onrender.com",
+              "type": "string"
+            },
+            {
+              "id": "asof",
+              "name": "as_of",
+              "value": "2013-09-15",
+              "type": "string"
+            },
+            {
+              "id": "tier",
+              "name": "min_tier",
+              "value": "MEDIUM",
+              "type": "string"
+            },
+            {
+              "id": "limit",
+              "name": "max_invoices",
+              "value": 30,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cc6918f3-bc87-49d6-8219-8908bd94afd5",
+      "name": "Run Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d4c212b5-f43b-4ee1-a49b-45c484d165a4",
+      "name": "Run Demo Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.api_base }}/portfolio/open-invoices",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "as_of",
+              "value": "={{ $json.as_of }}"
+            },
+            {
+              "name": "min_tier",
+              "value": "={{ $json.min_tier }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.max_invoices }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "234a8a50-3d2f-4f7d-9611-bdb069beb28f",
+      "name": "Get Risk-Ranked Open Invoices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "invoices",
+        "options": {}
+      },
+      "id": "84a6b949-7257-4cc0-b7d4-8d95efa21078",
+      "name": "One Item per Invoice",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a short payment reminder email (max 120 words) from the Accounts Receivable team of \"CashFlow AI Demo Co.\" to a customer.\nInvoice number: {{ $json.invoice_number }}\nAmount: AED {{ $json.amount }}\nDue date: {{ $json.due_date }} (days until due: {{ $json.days_to_due }}; negative means overdue)\nRisk tier: {{ $json.risk_tier }}\nInvoice disputed: {{ $json.disputed }}\nTone rules:\n- MEDIUM risk: warm, friendly reminder before the due date.\n- HIGH risk: polite but firm; ask the customer to confirm the payment date by reply, and say their account manager will call.\n- If the invoice is disputed: do NOT demand payment; acknowledge the query and offer a call to resolve it quickly.\n- Never threaten, never mention AI, risk scores or internal predictions.\nSign off as \"Accounts Receivable Team, CashFlow AI Demo Co.\"",
+        "hasOutputParser": true,
+        "batching": {
+          "batchSize": 5,
+          "delayBetweenBatches": 500
+        }
+      },
+      "id": "f4e78d4f-60fa-496a-bfdd-b10d8fb17fa2",
+      "name": "Draft Reminder Email (AI)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        960,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "043dfbdb-6897-44ab-9acf-53c743c68d32",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        432
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{ \"subject\": \"Friendly reminder: invoice 123 due 26 Sep\", \"body\": \"Dear customer, ...\" }"
+      },
+      "id": "91b43239-26c7-4171-9e25-b20bff0a4de8",
+      "name": "Email Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1120,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "run_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "as_of",
+              "value": "={{ $('Run Settings').first().json.as_of }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "priority",
+              "value": "={{ $('One Item per Invoice').item.json.priority }}",
+              "type": "number"
+            },
+            {
+              "id": "a4",
+              "name": "invoice_number",
+              "value": "={{ $('One Item per Invoice').item.json.invoice_number }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "customer_id",
+              "value": "={{ $('One Item per Invoice').item.json.customer_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "customer_email",
+              "value": "={{ $('One Item per Invoice').item.json.customer_email }}",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "amount",
+              "value": "={{ $('One Item per Invoice').item.json.amount }}",
+              "type": "number"
+            },
+            {
+              "id": "a8",
+              "name": "due_date",
+              "value": "={{ $('One Item per Invoice').item.json.due_date }}",
+              "type": "string"
+            },
+            {
+              "id": "a9",
+              "name": "days_to_due",
+              "value": "={{ $('One Item per Invoice').item.json.days_to_due }}",
+              "type": "number"
+            },
+            {
+              "id": "a10",
+              "name": "probability_late",
+              "value": "={{ $('One Item per Invoice').item.json.probability_late }}",
+              "type": "number"
+            },
+            {
+              "id": "a11",
+              "name": "challenger_probability_late",
+              "value": "={{ $('One Item per Invoice').item.json.challenger_probability_late }}",
+              "type": "number"
+            },
+            {
+              "id": "a12",
+              "name": "cash_at_risk",
+              "value": "={{ $('One Item per Invoice').item.json.cash_at_risk }}",
+              "type": "number"
+            },
+            {
+              "id": "a13",
+              "name": "risk_tier",
+              "value": "={{ $('One Item per Invoice').item.json.risk_tier }}",
+              "type": "string"
+            },
+            {
+              "id": "a14",
+              "name": "reasons",
+              "value": "={{ $('One Item per Invoice').item.json.reasons.join('; ') }}",
+              "type": "string"
+            },
+            {
+              "id": "a15",
+              "name": "recommended_action",
+              "value": "={{ $('One Item per Invoice').item.json.recommended_action }}",
+              "type": "string"
+            },
+            {
+              "id": "a16",
+              "name": "needs_approval",
+              "value": "={{ $('One Item per Invoice').item.json.needs_human_approval }}",
+              "type": "boolean"
+            },
+            {
+              "id": "a17",
+              "name": "email_subject",
+              "value": "={{ $json.output.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "a18",
+              "name": "email_body",
+              "value": "={{ $json.output.body }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "66e68669-0d53-4530-bfa3-1f2f50061d10",
+      "name": "Build Action Record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.needs_approval }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dea84ef0-6a2a-4d0b-83b4-3be0e0223e9b",
+      "name": "Needs Human Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1520,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "status",
+              "value": "PENDING_APPROVAL",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1eb8a41a-b711-4a0a-8149-85046eb4020c",
+      "name": "Hold for Manager Approval",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1760,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qwTY4jLyao1f2sxF",
+          "cachedResultName": "collections_actions"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "schema": [
+            {
+              "id": "run_at",
+              "displayName": "run_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "as_of",
+              "displayName": "as_of",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "due_date",
+              "displayName": "due_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "days_to_due",
+              "displayName": "days_to_due",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "probability_late",
+              "displayName": "probability_late",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "challenger_probability_late",
+              "displayName": "challenger_probability_late",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cash_at_risk",
+              "displayName": "cash_at_risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risk_tier",
+              "displayName": "risk_tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reasons",
+              "displayName": "reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_action",
+              "displayName": "recommended_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "needs_approval",
+              "displayName": "needs_approval",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_subject",
+              "displayName": "email_subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_body",
+              "displayName": "email_body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4a937003-c4ac-43ee-802f-d9990e00bae3",
+      "name": "Save Collection Action",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2000,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s2",
+              "name": "status",
+              "value": "READY_TO_SEND",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "43e07b92-4a8f-49ff-8f25-c5ff67944fb4",
+      "name": "Mark Ready to Send",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1760,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Run Settings').item.json.api_base }}/portfolio/cash-forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "as_of",
+              "value": "={{ $('Run Settings').item.json.as_of }}"
+            },
+            {
+              "name": "weeks",
+              "value": "4"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "1cfd245b-2a38-421c-bbe6-d99d6c03fd9e",
+      "name": "Get Cash Forecast",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        720,
+        464
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "run_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "d2",
+              "name": "as_of",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.as_of }}",
+              "type": "string"
+            },
+            {
+              "id": "d3",
+              "name": "open_invoices_total",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.open_invoices_total }}",
+              "type": "number"
+            },
+            {
+              "id": "d4",
+              "name": "total_open_amount",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.total_open_amount }}",
+              "type": "number"
+            },
+            {
+              "id": "d5",
+              "name": "total_cash_at_risk",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.total_cash_at_risk }}",
+              "type": "number"
+            },
+            {
+              "id": "d6",
+              "name": "cash_at_risk_pct",
+              "value": "={{ Math.round(1000 * $('Get Risk-Ranked Open Invoices').item.json.total_cash_at_risk / $('Get Risk-Ranked Open Invoices').item.json.total_open_amount) / 10 }}",
+              "type": "number"
+            },
+            {
+              "id": "d7",
+              "name": "actions_created",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.invoices.length }}",
+              "type": "number"
+            },
+            {
+              "id": "d8",
+              "name": "high_risk_count",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.invoices.filter(i => i.risk_tier === 'HIGH').length }}",
+              "type": "number"
+            },
+            {
+              "id": "d9",
+              "name": "approvals_needed",
+              "value": "={{ $('Get Risk-Ranked Open Invoices').item.json.invoices.filter(i => i.needs_human_approval).length }}",
+              "type": "number"
+            },
+            {
+              "id": "d10",
+              "name": "forecast_next_4_weeks",
+              "value": "={{ Math.round($json.weeks.reduce((s, w) => s + w.forecast_ai, 0) * 100) / 100 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "92cc6672-7164-4647-8d5d-b0bd35b00475",
+      "name": "Build Daily CFO Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        960,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K6mJT0r9XihHZqdI",
+          "cachedResultName": "daily_collection_runs"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "schema": [
+            {
+              "id": "run_at",
+              "displayName": "run_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "as_of",
+              "displayName": "as_of",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "open_invoices_total",
+              "displayName": "open_invoices_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_open_amount",
+              "displayName": "total_open_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_cash_at_risk",
+              "displayName": "total_cash_at_risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cash_at_risk_pct",
+              "displayName": "cash_at_risk_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "actions_created",
+              "displayName": "actions_created",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "high_risk_count",
+              "displayName": "high_risk_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approvals_needed",
+              "displayName": "approvals_needed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "forecast_next_4_weeks",
+              "displayName": "forecast_next_4_weeks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "826ffdd4-e002-4825-ae63-5422a5d714f9",
+      "name": "Save Daily Summary",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## CashFlow AI - Daily Collections Autopilot\nEvery morning: pulls open invoices ranked by **cash at risk** from the ML prediction API, drafts a tone-appropriate reminder for each with AI, and routes high-value HIGH-risk accounts to a manager for approval before anything is sent.\n\n**Demo mode:** `as_of` in *Run Settings* simulates \"today\" inside the 2013 dataset.\n\nAPI + model code: github.com/alameen1977/cashflow-ai",
+        "height": 260,
+        "width": 560,
+        "color": 4
+      },
+      "id": "35ebde61-7e67-4476-bec1-cc6ea74c62cb",
+      "name": "Sticky Note c8c807de",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Control step\nHIGH-risk invoices above the 90th-percentile amount are **held for manager approval** - the automation never sends a firm message to a key account without a human sign-off. Everything else is marked READY_TO_SEND.",
+        "height": 432,
+        "width": 400,
+        "color": 3
+      },
+      "id": "0650df7d-2e88-43d7-bb8e-9e65bac7c455",
+      "name": "Sticky Note e2c31f9a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 08:45 Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Settings": {
+      "main": [
+        [
+          {
+            "node": "Get Risk-Ranked Open Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Demo Now": {
+      "main": [
+        [
+          {
+            "node": "Run Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Risk-Ranked Open Invoices": {
+      "main": [
+        [
+          {
+            "node": "One Item per Invoice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Cash Forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Item per Invoice": {
+      "main": [
+        [
+          {
+            "node": "Draft Reminder Email (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Reminder Email (AI)": {
+      "main": [
+        [
+          {
+            "node": "Build Action Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Draft Reminder Email (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Draft Reminder Email (AI)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Action Record": {
+      "main": [
+        [
+          {
+            "node": "Needs Human Approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Human Approval?": {
+      "main": [
+        [
+          {
+            "node": "Hold for Manager Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Ready to Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hold for Manager Approval": {
+      "main": [
+        [
+          {
+            "node": "Save Collection Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Ready to Send": {
+      "main": [
+        [
+          {
+            "node": "Save Collection Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cash Forecast": {
+      "main": [
+        [
+          {
+            "node": "Build Daily CFO Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Daily CFO Summary": {
+      "main": [
+        [
+          {
+            "node": "Save Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "8a0d288b-e532-4a51-9583-7cc18d15351e",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "9a64283d2ccb8f1a88c7c1ef1b10a798685f408683c46dcd80296b51419ead87"
+  },
+  "nodeGroups": [
+    {
+      "id": "88d7b76f-5eea-4dc1-87fe-ce192dd15300",
+      "name": "Fetch risk scores",
+      "nodeIds": [
+        "cc6918f3-bc87-49d6-8219-8908bd94afd5",
+        "234a8a50-3d2f-4f7d-9611-bdb069beb28f"
+      ],
+      "description": "Calls the CashFlow AI prediction API for open invoices ranked by cash at risk (probability late x amount)."
+    },
+    {
+      "id": "af7801a2-41bb-4c7a-9d9c-f0dab2cdd97c",
+      "name": "Draft reminders with AI",
+      "nodeIds": [
+        "84a6b949-7257-4cc0-b7d4-8d95efa21078",
+        "f4e78d4f-60fa-496a-bfdd-b10d8fb17fa2",
+        "043dfbdb-6897-44ab-9acf-53c743c68d32",
+        "91b43239-26c7-4171-9e25-b20bff0a4de8",
+        "66e68669-0d53-4530-bfa3-1f2f50061d10"
+      ],
+      "description": "One item per invoice; AI writes a reminder whose tone matches the risk tier and dispute status."
+    },
+    {
+      "id": "ae2ac42a-03c2-4033-b28d-6152955c8f63",
+      "name": "Daily CFO summary",
+      "nodeIds": [
+        "1cfd245b-2a38-421c-bbe6-d99d6c03fd9e",
+        "92cc6672-7164-4647-8d5d-b0bd35b00475",
+        "826ffdd4-e002-4825-ae63-5422a5d714f9"
+      ],
+      "description": "Logs open amount, cash at risk, approvals needed and the 4-week AI cash forecast."
+    },
+    {
+      "id": "38abd99a-6e85-4154-903f-08f00f6ac955",
+      "name": "Approval control & logging",
+      "nodeIds": [
+        "dea84ef0-6a2a-4d0b-83b4-3be0e0223e9b",
+        "1eb8a41a-b711-4a0a-8149-85046eb4020c",
+        "43e07b92-4a8f-49ff-8f25-c5ff67944fb4",
+        "4a937003-c4ac-43ee-802f-d9990e00bae3"
+      ],
+      "description": "High-value HIGH-risk accounts are held for manager sign-off; all actions are logged with status for audit."
+    }
+  ],
+  "id": "yFcQxzjfJ4kV8oqC",
+  "tags": []
+}

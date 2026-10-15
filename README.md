@@ -6,7 +6,7 @@ incoming cash.
 
 **Stack:** Python · pandas · PyTorch · XGBoost · FastAPI · Docker · n8n · LLM API
 
-> Status: 🚧 Step 2 of 4 complete (models + prediction API)
+> Status: 🚧 Step 3 of 4 complete (models + live API + n8n automation)
 
 ## Headline results (on unseen, later invoices)
 
@@ -102,6 +102,26 @@ Example `/score` response:
 are flagged `needs_human_approval` — the automation must not send a firm
 message to a key account without a person signing it off.
 
+## Step 3: n8n collections autopilot
+
+![n8n workflow](docs/n8n_workflow.png)
+
+Runs every morning at 08:45 (or on demand):
+
+1. **Fetch risk scores** — calls the live prediction API for open invoices ranked by cash at risk.
+2. **Draft reminders with AI** — an LLM writes one email per invoice; tone follows the risk tier
+   (friendly for MEDIUM, firm-but-polite for HIGH) and **never demands payment on a disputed invoice** —
+   it offers a call to resolve the dispute instead.
+3. **Approval control** — HIGH-risk invoices above the 90th-percentile amount are held as
+   `PENDING_APPROVAL` for a manager; everything else is `READY_TO_SEND`. Every action is logged for audit.
+4. **Daily CFO summary** — open amount, cash at risk, approvals needed and the 4-week AI cash forecast.
+
+First run: 30 invoices processed, 19 HIGH risk, **2 held for manager approval**, 39% of open
+receivables flagged as at risk. See [sample output](n8n/sample_output.md).
+
+Workflow files: `n8n/cashflow_collections_autopilot.json` (import into n8n) and
+`n8n/workflow_sdk.ts` (source).
+
 ## Design decisions (and why)
 
 - **No data leakage.** A customer's history features only use invoices that
@@ -132,7 +152,7 @@ Dockerfile           container for deployment
 render.yaml          one-click Render deployment
 requirements.txt     API runtime (no PyTorch)
 requirements-train.txt  training & analysis (adds PyTorch)
-n8n/                 collections workflow export  (step 3)
+n8n/                 collections workflow (import JSON, source, sample output)
 docs/                architecture, demo           (step 4)
 ```
 
@@ -162,5 +182,5 @@ Verified identical to PyTorch output (max difference < 0.0000002).
 
 - [x] Step 1 — Data, leakage-safe features, exploratory analysis
 - [x] Step 2 — Rule of thumb vs logistic regression vs XGBoost vs PyTorch; honest comparison; FastAPI service; cash-forecast backtest
-- [ ] Step 3 — n8n collections autopilot with human-approval step
+- [x] Step 3 — n8n collections autopilot with AI-drafted emails and human-approval step
 - [ ] Step 4 — Cash forecast, dashboard, demo video
